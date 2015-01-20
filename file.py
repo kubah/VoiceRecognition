@@ -8,155 +8,117 @@ from scipy.io import wavfile
 import os
 import pdb
 
-signal = 0
-filename = 0
-answer = 0
-w = 0
-p = 3
 k = m = 0
-lowpass = 201/p
-highpass = 27000/p
+frame = 0
+a = 0
+lowpass = 50
+highpass = 400
 
-def test():
-    if "K" in filename:
-        a = "K"
-    elif "M" in filename:
-        a = "M"
-
-    if answer == a:
-        return 0
-    else:
-        return 1
-
-def readF():
+def readF(filename):
+    global k, m, p, a, frame
+    r = 0
 #    pdb.set_trace()
-    global signal, sampleRate, k, m, answer
-#    signal = fromfile(filename, 'int16')[:44]   
 
-    sampleRate, signal = wavfile.read(filename, True)
+    sampleRate, signal = wavfile.read(filename)
     channels = len(signal.shape)
 
     if channels > 1:
         signal = signal[:, 0]
 
-    frameWidthT = 300 # (ms)
+    frameWidthT = 1000 # (ms)
     framesPerSec = 1000/frameWidthT
     frameWidthS = sampleRate/framesPerSec
     n = int(len(signal)/frameWidthS)
+    
+    a = 1./framesPerSec
+    
+    """
+    print "sampleRate = " + str(sampleRate)
+    print "len(signal) = " + str(len(signal))
+    print "framesPerSec = " + str(framesPerSec)
+    print "frameWidthS = " + str(frameWidthS)
+    print "n = " + str(n)
+    """
 
-    for i in range(n-1):
-        frame = signal[i*frameWidthS:(i+1)*frameWidthS]
+    p = 0.9
+    for i, j in zip(frange(0, n-1, p), frange(1, n, p)):
+        frame = signal[i*frameWidthS:j*frameWidthS]
         frame = rfft(frame)
-        print len(frame)
-        frame = frame[:int(len(frame)/2)]
         frame = abs(frame)
-        frame = frame[::p]
+        frame = frame[:highpass*a]
+        frame[:lowpass*a] = 0
+        frame = frame/frame.max()
 
-        draw(1, frame)
-        x = frame[85:225].argmax()
-        if abs(x - 125) < abs(x - 210):
+        if frame[80*a:120*a].max() > 0.3:
+            r = 1;
+
+        x, y = f2()     
+#        x, y = f1()
+#        x, y = f0()
+
+        m += x
+        k += y
+        
+        print m, k
+
+    if m == k:
+        if r == 1:
             m += 1
         else:
             k += 1
+                
+#        xlim([lowpass*a,highpass*a])
+#        plot(frame)
 
+#    directory, filename = os.path.split(filename)
+#    savefig('./pdf/' + filename + '.pdf')
+#    show()
 
-    foo() 
-#    draw(0, signal)
-
-#    m, k = f0()
     if m > k:
-        answer = "M"
+        print "M"
+    elif m < k:
+        print "K"
     else:
-        answer = "K"
-    r = test()
-    print filename + " : " + ("OK" if r == 0 else "WRONG")
-    return r 
+        print "S"
 
-def foo():
-    global signal
-    signal = rfft(signal) 
-    desc()
-    length = int(len(signal)/2)
-    signal = signal[:length]
-    signal = abs(signal) 
-    signal = signal[::p]
-    signal[:lowpass] = 0
-    signal = signal[:highpass]
-    signal = signal/signal.max()
- 
-
-def desc():
-    print sampleRate
-    print "Hz : " + str(signal.argmax())
-    print "A : " + str(signal.max())
-    freq = fftfreq(len(signal)) 
-    print "len(signal) : " + str(len(signal))
-    print "len(freq) : " + str(len(freq))
-
-def draw(b, sig):
-    xlim([0,highpass])
-    xlim([0,1000])
-    plot(sig)
-    savefig(filename + '.pdf')
-    if b == 1:
-        show()
-
-def f5():
-    global m, k
-    for i in range(30):
-        m += sum(signal[85*i:185*i])
-        k += sum(signal[165*i:225*i])
-    return (m, k)
-    
-
-def f4():
-    x = signal.argmax()
-    if abs(x - 125) < abs(x - 210):
-        m = 1;
-        k = 0;
-    else:
-        m = 0;
-        k = 1;
-    return (m, k)
-
-def f3():
-    if signal.argmax() > 130:
-        k = 1
-        m = 0
-    else:
-        k = 0
-        m = 1
-    return (m, k)
-    
 def f2():
-    for x in signal[50:100]:
-        if x > 0.40:
-            k = 0
-            m = 1
-        else:
-            k = 1
-            m = 0
+    w = 100
+    f, s = 80, 150
+    m = k = 0
+    m += sum(frame[f*a:(f+w)*a])
+    k += sum(frame[s*a:(s+w)*a])
+#    """ 
+    if m > k*0.55:
+        m, k = 1, 0 
+    else:
+        m, k = 0, 1
+#    """
     return (m, k)
-    
+
 def f1():
-    m = sum(signal[85:180])
-    k = sum(signal[165:255])
+    m = k = 0
+    x = frame[70*a:170*a].max()
+    y = frame[170*a:270*a].max()
+    if x > y:
+        m, k = 1, 0 
+    else:
+        m, k = 0, 1
     return (m, k)
 
 def f0():
-    return (0, 0)
+    m = k = 0
+    m += sum(frame[85*a:180*a]) # 85 180 -- 50ms
+    k += sum(frame[165*a:255*a]) # 165 255 -- 50ms
+    if m > k:
+        m, k = 1, 0
+    else:
+        m, k = 0, 1
+    return (m, k)
+    
 
 if __name__ == "__main__":
     set_printoptions(threshold='nan')
     if len(sys.argv) <= 1:
         print "Usage: " + sys.argv[0] + " [filename.wav]"
     else:
-        filename = sys.argv[1]
-        r = readF()
-        sys.exit(r) 
-
-#    dir = "train/"
-#    for file in os.listdir(dir):
-#        if file.endswith('.wav'):
-#            print file
-#            read(dir+file)
+        readF(sys.argv[1])
