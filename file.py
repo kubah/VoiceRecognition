@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf -*-
-from __future__ import division
 from pylab import *
-from numpy import *
-from scipy import *
 from scipy.io import wavfile
 import os
 import warnings
@@ -25,7 +22,7 @@ def readF(filename):
     if channels > 1:
         signal = signal[:, 0]
 
-    frameWidthT = 1000 # (ms)
+    frameWidthT = 600 # (ms)
     framesPerSec = 1000/frameWidthT
     frameWidthS = sampleRate/framesPerSec
     n = int(len(signal)/frameWidthS)
